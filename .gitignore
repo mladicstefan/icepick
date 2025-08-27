@@ -6,7 +6,7 @@
 *.ko
 *.obj
 *.elf
-
+icepick
 # Linker output
 *.ilk
 *.map
