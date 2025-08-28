@@ -1,3 +1,4 @@
+#include <pcap/dlt.h>
 #include <pcap/pcap.h>
 #include <stdio.h>
 
@@ -45,6 +46,48 @@ pcap_t *create_handle(char *device, char *errbuf)
 }
 
 
+void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
+{
+    printf("Packet parsed..."); //placeholder
+}
+
+void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *packet)
+{
+    int datalink = pcap_datalink(handle);
+    switch (datalink)
+    {
+        case DLT_IEEE802_11_RADIO: //127, for parsing in monitor mode
+            parse_radiotap_802_11(header,packet);
+            printf("Passing Monitor Mode...");
+            break;
+        case DLT_NULL:
+            printf("Parsing loopback");
+            break;
+        case DLT_EN10MB: // 1 - Ethernet format
+            printf("Parsing Ethernet packet\n");
+            break;
+        default:
+        printf("Unknown datalink type: %c\n", datalink);
+    }
+}
+
+void start_capture(pcap_t *handle)
+{
+    struct pcap_pkthdr *header;
+    const u_char *packet;
+    int result;
+
+    printf("Starting packet capture...\n");
+    while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
+        if (result == 0) continue;  // Timeout, try again
+
+        printf("Captured packet: %d bytes \n", header->caplen);
+
+        parse_packet(handle, header, packet);
+    }
+}
+
+
 int main()
 {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -58,22 +101,11 @@ int main()
         fprintf(stderr, "Not able to find interfaces %s\n", errbuf);
         return -2;
     }
-    pcap_t *handle = create_handle("lo", errbuf); //lo is for loopback, wlan1 would be for monitor mode
+    pcap_t *handle = create_handle("wlan0", errbuf); //lo is for loopback, wlan1 would be for monitor mode
     if (handle == NULL){
         return -3;
     }
-
-    struct pcap_pkthdr *header;
-    const u_char *packet;
-    int result;
-
-    printf("Starting packet capture on lo...\n");
-    while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
-        if (result == 0) continue;  // Timeout, try again
-
-        printf("Captured packet: %d bytes from %s\n", header->caplen, "lo");
-        // TODO: Parse the packet data
-    }
+    start_capture(handle);
 
     pcap_close(handle);
     return 0;
