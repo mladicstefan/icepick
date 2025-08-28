@@ -35,6 +35,11 @@ pcap_t *create_handle(char *device, char *errbuf)
         return NULL;
     }
 
+    if (pcap_set_rfmon(handle, 1) != 0) {
+        printf("Failed to set monitor mode: %s\n", pcap_geterr(handle));
+    } else {
+        printf("Monitor mode set successfully\n");
+    }
     set_flags(handle);
 
     if (pcap_activate(handle) != 0) {
@@ -48,7 +53,17 @@ pcap_t *create_handle(char *device, char *errbuf)
 
 void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
 {
-    printf("Packet parsed..."); //placeholder
+    printf("Raw packet dump (%d bytes):\n", header->caplen);
+
+    // Hex dump format
+    for (int i = 0; i < header->caplen; i++) {
+        if (i % 16 == 0) printf("%04x: ", i);  // Address offset
+        printf("%02x ", packet[i]);
+        if ((i + 1) % 16 == 0) printf("\n");   // New line every 16 bytes
+    }
+    if (header->caplen % 16 != 0) printf("\n"); // Final newline if needed
+
+    printf("\n");
 }
 
 void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *packet)
@@ -87,7 +102,6 @@ void start_capture(pcap_t *handle)
     }
 }
 
-
 int main()
 {
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -101,7 +115,7 @@ int main()
         fprintf(stderr, "Not able to find interfaces %s\n", errbuf);
         return -2;
     }
-    pcap_t *handle = create_handle("wlan0", errbuf); //lo is for loopback, wlan1 would be for monitor mode
+    pcap_t *handle = create_handle("wlan0", errbuf); //lo is for loopback, wlan1 (or whatever ur monitor mode adapter is) would be for monitor mode
     if (handle == NULL){
         return -3;
     }
