@@ -1,4 +1,5 @@
 #include "pcap.h"
+#include <endian.h>
 #include <netinet/in.h>
 #include <stdint.h>
 #include <pcap/pcap.h>
@@ -64,6 +65,11 @@ void print_packet_timestamps(struct pcap_pkthdr *header)
            header->ts.tv_usec);
 }
 
+void print_mac(const uint8_t *mac) {
+    printf("%02x:%02x:%02x:%02x:%02x:%02x",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
 void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
 {
     printf("Raw packet dump (%d bytes):\n", header->caplen);
@@ -84,13 +90,44 @@ void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
             rt_hdr->version, rt_len, present);
 
     //might seem confusing, pointer isn't const, it's data is though
+    //this gives us radiotap header and frame lenght
     const u_char *fieldptr = packet + rt_len;
-    const u_char *end = packet + header->caplen;
-    uint32_t frame = header->caplen - rt_len;
-    printf("Frame lenght:%d\n", frame);
-    while (fieldptr < end) {
-        // printf("%02x ", *fieldptr);  // Dereference current position
-        fieldptr++;
+
+    // const u_char *end = packet + header->caplen; might need to be used idk
+
+    uint32_t frame_len = header->caplen - rt_len;
+    printf("Frame lenght:%d\n", frame_len);
+
+    const struct ieee802_11_frame *frame = (const struct ieee802_11_frame*) fieldptr;
+    uint16_t fc = le16toh(frame->frame_control);
+
+    uint8_t frame_type = (fc >> 2) & 0x3;
+    uint8_t frame_subtype = (fc >> 4) & 0xF;
+    //todo, do something with this something biiiig
+
+    uint16_t duration = le16toh(frame->duration);
+    uint16_t seq_ctrl = le16toh(frame->seq_ctrl);
+
+    uint16_t seq_num = (seq_ctrl >> 4) & 0xFFF;
+    uint8_t frag_num = seq_ctrl & 0xF;
+
+    printf("Frame type=%d, subtype=%d, duration=%d, seq=%d, frag=%d\n",
+           frame_type, frame_subtype, duration, seq_num, frag_num);
+    // Decode ToDS/FromDS to interpret addressing correctly
+    uint8_t to_ds = (fc >> 8) & 0x1;
+    uint8_t from_ds = (fc >> 9) & 0x1;
+
+    printf("Immediate Receiver: "); print_mac(frame->addr1); printf("\n");
+    printf("Immediate Transmitter: "); print_mac(frame->addr2); printf("\n");
+
+    if (frame_type == 0) {
+        printf("BSSID: "); print_mac(frame->addr3); printf("\n");
+    } else if (frame_type == 2) {
+        if (to_ds && !from_ds) {
+            printf("Final Destination: "); print_mac(frame->addr3); printf("\n");
+        } else if (!to_ds && from_ds) {
+            printf("Original Source: "); print_mac(frame->addr3); printf("\n");
+        }
     }
 }
 

@@ -1,6 +1,8 @@
 #pragma once
 #include <pcap/pcap.h>
 #include <pcap/dlt.h>
+#include <stdint.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 
 /**
@@ -18,6 +20,22 @@
  * - pcap_pkthdr contains libpcap's capture metadata (timestamps, lengths)
  * - These are completely separate - don't confuse wire format with capture metadata
  */
+
+ /**
+  * Present field bitmap explanation:
+  *
+  * The 'present' field is a 32-bit bitmap where each bit indicates whether
+  * a specific radiotap field is included after this header. For example:
+  * - Bit 0: TSFT (timestamp)
+  * - Bit 2: Rate
+  * - Bit 5: Antenna signal strength (dBm)
+  * - Bit 31: Extension bit - if set, another present field follows
+  *
+  * VARIABLE SIZE WARNING: If bit 31 is set, you have multiple present fields
+  * chained together. You must parse all present fields before knowing where
+  * the variable radiotap data starts.
+  */
+
 struct radiotap_header {
     uint8_t version;    // Radiotap version (always 0)
     uint8_t pad;        // Padding for alignment
@@ -26,21 +44,47 @@ struct radiotap_header {
 } __attribute__((packed));
 
 /**
- * Present field bitmap explanation:
+ * IEEE 802.11 frame header structure - Fixed addressing and control fields
  *
- * The 'present' field is a 32-bit bitmap where each bit indicates whether
- * a specific radiotap field is included after this header. For example:
- * - Bit 0: TSFT (timestamp)
- * - Bit 2: Rate
- * - Bit 5: Antenna signal strength (dBm)
- * - Bit 31: Extension bit - if set, another present field follows
- *
- * VARIABLE SIZE WARNING: If bit 31 is set, you have multiple present fields
- * chained together. You must parse all present fields before knowing where
- * the variable radiotap data starts.
- */
+ * Standard 802.11 frame format used by all wireless devices. Contains addressing
+ * information and frame control metadata that's always present regardless of
+ * frame type (management, control, or data).
 
-/**
+ * ToDS/FromDS bit interpretation for traffic direction analysis:
+ *
+ * These bits in frame_control determine wireless traffic flow and how to
+ * interpret the address fields for end-to-end communication tracking.
+ *
+ * ToDS = "To Distribution System" (toward wired network/internet)
+ * FromDS = "From Distribution System" (from wired network/internet)
+ *
+ * TRAFFIC DIRECTION COMBINATIONS:
+ * - ToDS=0, FromDS=0: IBSS/Ad-hoc (device-to-device, no AP)
+ * - ToDS=1, FromDS=0: Station → AP (IoT device uploading to internet)
+ * - ToDS=0, FromDS=1: AP → Station (internet downloading to IoT device)
+ * - ToDS=1, FromDS=1: WDS/mesh (AP-to-AP wireless bridging)
+ *
+ * IOT EXFILTRATION ANALYSIS:
+ * - Heavy ToDS=1 traffic from device = potential data uploads/exfiltration
+ * - Balanced ToDS/FromDS = normal bidirectional communication
+ * - Unexpected ToDS patterns = suspicious device behavior
+ *
+ * ADDRESSING CHANGES PER DIRECTION:
+ * See address interpretation table above for how addr1/addr2/addr3 meaning
+ * shifts based on these direction bits.
+ */
+struct ieee802_11_frame {
+    uint16_t frame_control;  // Frame type, subtype, flags (ToDS/FromDS/etc) - 2B
+    uint16_t duration;       // NAV duration or Association ID - 2B
+    uint8_t addr1[6];        // Address 1: Usually receiver address - 6B
+    uint8_t addr2[6];        // Address 2: Usually transmitter address - 6B
+    uint8_t addr3[6];        // Address 3: BSSID/DA/SA (depends on ToDS/FromDS) - 6B
+    uint16_t seq_ctrl;       // Sequence control: fragment + sequence number - 2B
+    // addr4[6] conditionally present - check ToDS=1 && FromDS=1
+    // Frame body follows (LLC/SNAP → IP → TCP/UDP → payload)
+} __attribute__((packed));
+
+ /**
  * Discovers and prints all available network interfaces on the system.
  * Useful for identifying capture targets before creating handles.
  * @param errbuf Buffer to store error messages (PCAP_ERRBUF_SIZE)
@@ -73,6 +117,12 @@ pcap_t *create_handle(char *device, char *errbuf);
  * @param header Packet header containing libpcap's timestamp data
  */
 void print_packet_timestamps(struct pcap_pkthdr *header);
+
+/**
+ * Prints human-readable MAC address from packet metadata.
+ * @param uint8_t pointer to the beggining of MAC sequence
+ */
+void print_mac(const uint8_t *mac);
 
 /**
  * Parses 802.11 wireless frames with radiotap headers (DLT_IEEE802_11_RADIO).
