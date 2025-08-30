@@ -45,7 +45,7 @@ void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet);
 
 /**
  * Main packet parser that dispatches based on datalink type.
- * Handles different link layer protocols (Ethernet, 802.11, loopback).
+ * Handles different link layer protocols (802.11,Ethernet, loopback). NOTE: ETH and lo are for testing
  * @param handle pcap handle (used to determine datalink type)
  * @param header Packet header with metadata
  * @param packet Raw packet data buffer
