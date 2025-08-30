@@ -1,8 +1,9 @@
+#include <assert.h>
 #include <time.h>
 #include <pcap/dlt.h>
 #include <pcap/pcap.h>
 #include <stdio.h>
-
+#include <sys/types.h>
 int list_interfaces(char* errbuf)
 {
     pcap_if_t *alldevs;
@@ -17,7 +18,7 @@ int list_interfaces(char* errbuf)
         if (dev-> description){
             printf("Desc: %s\n",dev->description);
         }
-        printf("%c\n", dev->flags);
+        printf("%u\n", dev->flags);
     }
     pcap_freealldevs(alldevs);
     return 0;
@@ -107,7 +108,7 @@ void start_capture(pcap_t *handle)
     printf("Starting packet capture...\n");
     while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
         if (result == 0) continue;  // Timeout, try again
-
+        assert(header->caplen > 0);
         printf("Captured packet: %d bytes \n", header->caplen);
 
         parse_packet(handle, header, packet);
@@ -117,7 +118,6 @@ void start_capture(pcap_t *handle)
 int main()
 {
     char errbuf[PCAP_ERRBUF_SIZE];
-
     if (pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf) != 0){
         fprintf(stderr, "pcap init failed %s\n", errbuf);
         return -1;
