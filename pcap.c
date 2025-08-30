@@ -1,5 +1,8 @@
 #include "pcap.h"
+#include <netinet/in.h>
+#include <stdint.h>
 #include <pcap/pcap.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 #include <time.h>
@@ -25,7 +28,7 @@ int list_interfaces(char *errbuf)
 
 void set_flags(pcap_t *handle, char *errbuf)
 {
-    pcap_set_timeout(handle, 1000); //TODO: Check if needed when using nonblock
+    pcap_set_immediate_mode(handle, 1); // Packets get sent as soon as they arrive, no buffering. Otherwise would need to set timeout pcap_set_timeout
     if (pcap_set_rfmon(handle, 1) != 0) {
         printf("Failed to set monitor mode: %s\n", pcap_geterr(handle));
     } else {
@@ -43,6 +46,7 @@ pcap_t *create_handle(char *device, char *errbuf)
     }
 
     set_flags(handle, errbuf);
+
     if (pcap_activate(handle) != 0) {
         fprintf(stderr, "pcap_activate failed: %s\n", pcap_geterr(handle));
         pcap_close(handle);
@@ -64,14 +68,37 @@ void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
 {
     printf("Raw packet dump (%d bytes):\n", header->caplen);
     print_packet_timestamps(header);
-    // Hex dump format
-    for (uint32_t i = 0; i < header->caplen; i++) {
-        // if (i % 16 == 0) printf("%04x: ", i);  // Address offset
-        printf("%02x ", packet[i]);
-        // if ((i + 1) % 16 == 0) printf("\n");   // New line every 16 bytes
+
+    struct radiotap_header {
+       uint8_t version;
+       uint8_t pad;
+       uint16_t len;
+       uint32_t present; //bitmap to which field is present
+    } __attribute__((packed)); //do not align, for pointer casting from packet data to struct
+
+    // only the radiotap header is fixed size, so we can only cast this part before viewing the bitmap (present)
+    const struct radiotap_header *rt_hdr = (const struct radiotap_header*) packet;
+
+    // handle endianness
+    // rt_hdr->len= le16toh(rt_hdr->len); //little endian to 16 host
+    // rt_hdr->present = le32toh(rt_hdr->present); //same
+    // NOTE: This is commented out since for the pcap API to work packet needs to be const which means
+    // that rt_hdr is also const, so i cannot assign rt_hdr->len to match host endiannes :(
+    uint16_t rt_len = le16toh(rt_hdr->len);
+    uint32_t present = le32toh(rt_hdr->present);
+
+    printf("Header: version=%d, length=%d, present=0x%08x\n",
+            rt_hdr->version, rt_len, present);
+
+    //might seem confusing, pointer isn't const, it's data is though
+    const u_char *fieldptr = packet + rt_len;
+    const u_char *end = packet + header->caplen;
+    uint32_t frame = header->caplen - rt_len;
+    printf("Frame lenght:%d\n", frame);
+    while (fieldptr < end) {
+        // printf("%02x ", *fieldptr);  // Dereference current position
+        fieldptr++;
     }
-    if (header->caplen % 16 != 0) printf("\n"); // Final newline if needed
-    printf("\n");
 }
 
 void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *packet)
@@ -80,7 +107,6 @@ void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *pack
     switch (datalink) {
         case DLT_IEEE802_11_RADIO: //127, for parsing in monitor mode
             parse_radiotap_802_11(header, packet);
-            printf("Passing Monitor Mode...");
             break;
         case DLT_NULL:
             printf("Parsing loopback");
@@ -99,10 +125,10 @@ void start_capture(pcap_t *handle)
     const u_char *packet;
     int result;
     printf("Starting packet capture...\n");
+    //currently wastes cpu cycles, need to sleep or integrate epoll
     while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
         if (result == 0) continue;  // Timeout, try again
         assert(header->caplen > 0);
-        printf("Captured packet: %d bytes \n", header->caplen);
         parse_packet(handle, header, packet);
     }
 }
