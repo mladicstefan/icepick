@@ -17,7 +17,7 @@ int list_interfaces(char *errbuf);
  * Currently sets 1000ms timeout for packet capture operations.
  * @param handle Active pcap handle to configure
  */
-void set_flags(pcap_t *handle);
+void set_flags(pcap_t *handle, char *errbuf);
 
 /**
  * Creates and activates a pcap handle for the specified device.

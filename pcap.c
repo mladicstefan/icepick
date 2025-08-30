@@ -1,4 +1,5 @@
 #include "pcap.h"
+#include <pcap/pcap.h>
 #include <stdio.h>
 #include <assert.h>
 #include <time.h>
@@ -22,9 +23,15 @@ int list_interfaces(char *errbuf)
     return 0;
 }
 
-void set_flags(pcap_t *handle)
+void set_flags(pcap_t *handle, char *errbuf)
 {
-    pcap_set_timeout(handle, 1000);
+    pcap_set_timeout(handle, 1000); //TODO: Check if needed when using nonblock
+    if (pcap_set_rfmon(handle, 1) != 0) {
+        printf("Failed to set monitor mode: %s\n", pcap_geterr(handle));
+    } else {
+        printf("Monitor mode set successfully\n");
+    }
+    pcap_setnonblock(handle, 1, errbuf);
 }
 
 pcap_t *create_handle(char *device, char *errbuf)
@@ -34,12 +41,8 @@ pcap_t *create_handle(char *device, char *errbuf)
         fprintf(stderr, "pcap_create failed: %s\n", errbuf);
         return NULL;
     }
-    if (pcap_set_rfmon(handle, 1) != 0) {
-        printf("Failed to set monitor mode: %s\n", pcap_geterr(handle));
-    } else {
-        printf("Monitor mode set successfully\n");
-    }
-    set_flags(handle);
+
+    set_flags(handle, errbuf);
     if (pcap_activate(handle) != 0) {
         fprintf(stderr, "pcap_activate failed: %s\n", pcap_geterr(handle));
         pcap_close(handle);
