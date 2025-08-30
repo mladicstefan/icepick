@@ -69,13 +69,6 @@ void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
     printf("Raw packet dump (%d bytes):\n", header->caplen);
     print_packet_timestamps(header);
 
-    struct radiotap_header {
-       uint8_t version;
-       uint8_t pad;
-       uint16_t len;
-       uint32_t present; //bitmap to which field is present
-    } __attribute__((packed)); //do not align, for pointer casting from packet data to struct
-
     // only the radiotap header is fixed size, so we can only cast this part before viewing the bitmap (present)
     const struct radiotap_header *rt_hdr = (const struct radiotap_header*) packet;
 
