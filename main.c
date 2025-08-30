@@ -1,3 +1,4 @@
+#include <time.h>
 #include <pcap/dlt.h>
 #include <pcap/pcap.h>
 #include <stdio.h>
@@ -50,16 +51,25 @@ pcap_t *create_handle(char *device, char *errbuf)
     return handle;
 }
 
+void print_packet_timestamps(struct pcap_pkthdr *header)
+{
+    struct tm *tm_info = localtime(&header->ts.tv_sec);
+    printf("Captured: %04d-%02d-%02d %02d:%02d:%02d.%06ld\n",
+           tm_info->tm_year + 1900, tm_info->tm_mon + 1, tm_info->tm_mday,
+           tm_info->tm_hour, tm_info->tm_min, tm_info->tm_sec,
+           header->ts.tv_usec);
+}
+
 
 void parse_radiotap_802_11(struct pcap_pkthdr *header, const u_char *packet)
 {
     printf("Raw packet dump (%d bytes):\n", header->caplen);
-
+    print_packet_timestamps(header);
     // Hex dump format
-    for (int i = 0; i < header->caplen; i++) {
-        if (i % 16 == 0) printf("%04x: ", i);  // Address offset
+    for (uint32_t i = 0; i < header->caplen; i++) {
+        // if (i % 16 == 0) printf("%04x: ", i);  // Address offset
         printf("%02x ", packet[i]);
-        if ((i + 1) % 16 == 0) printf("\n");   // New line every 16 bytes
+        // if ((i + 1) % 16 == 0) printf("\n");   // New line every 16 bytes
     }
     if (header->caplen % 16 != 0) printf("\n"); // Final newline if needed
 
@@ -84,6 +94,8 @@ void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *pack
         default:
         printf("Unknown datalink type: %c\n", datalink);
     }
+    // invalid
+    // pcap_free_datalinks(&datalink);
 }
 
 void start_capture(pcap_t *handle)
