@@ -11,6 +11,7 @@ icepick
 *.ilk
 *.map
 *.exp
+icepick_debug
 
 # Precompiled Headers
 *.gch
