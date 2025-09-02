@@ -4,8 +4,8 @@ LIBS=-lpcap
 DEBUG_OBJS=main_debug.o pcap_debug.o
 RELEASE_OBJS=main_release.o pcap_release.o
 
-DEBUG_CFLAGS=-g -Wall -Wextra -DDEBUG -fsanitize=address -fsanitize=undefined
-DEBUG_LDFLAGS=-fsanitize=address -fsanitize=undefined
+DEBUG_CFLAGS=-g -Wall -Wextra -pthread -DDEBUG -fsanitize=address -fsanitize=undefined
+DEBUG_LDFLAGS=-fsanitize=address -pthread -fsanitize=undefined
 
 RELEASE_CFLAGS=-O3 -Wall -Werror -DNDEBUG -march=native -flto -ffast-math
 RELEASE_LDFLAGS=-flto

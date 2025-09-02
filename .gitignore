@@ -1,6 +1,6 @@
 # Prerequisites
 *.d
-
+threadpool/*
 # Object files
 *.o
 *.ko

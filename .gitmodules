@@ -1,0 +1,3 @@
+[submodule "lib/corelib"]
+	path = lib/corelib
+	url = git@github.com:mladicstefan/corelib.h.git
