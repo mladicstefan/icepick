@@ -1,4 +1,5 @@
 #include "pcap.h"
+#include "lib/corelib/threadpool.h"
 #include <endian.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -149,7 +150,7 @@ void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *pack
     }
 }
 
-void start_capture(pcap_t *handle)
+void start_capture(pcap_t *handle, threadpool_t *pool)
 {
     struct pcap_pkthdr *header;
     const u_char *packet;
@@ -159,6 +160,7 @@ void start_capture(pcap_t *handle)
     while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
         if (result == 0) continue;  // Timeout, try again
         assert(header->caplen > 0);
+        // threadpool_add(pool, (*function)(void *), void *argument)
         parse_packet(handle, header, packet);
     }
 }

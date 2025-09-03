@@ -19,7 +19,7 @@ void user_help() {
 int main(int argc, char *argv[]) {
     char errbuf[PCAP_ERRBUF_SIZE];
     char *interface;
-
+    threadpool_t *pool = cpool_create(MAX_THREADS, MAX_QUEUE);
     // Handle command line arguments
     if (argc < 2) {
         fprintf(stderr, "Error: Interface name required\n");
@@ -48,8 +48,9 @@ int main(int argc, char *argv[]) {
         return -4;
     }
 
-    start_capture(handle);
+    start_capture(handle, pool);
 
+    threadpool_free(pool);
     pcap_close(handle);
     return 0;
 }
