@@ -1,5 +1,6 @@
 #include "pcap.h"
 #include "lib/corelib/threadpool.h"
+#include <string.h>
 #include <endian.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -26,6 +27,14 @@ int list_interfaces(char *errbuf)
     }
     pcap_freealldevs(alldevs);
     return 0;
+}
+
+void parse_packet_wrapper(void *arg) {
+    packet_work_t *work = (packet_work_t *)arg;
+    parse_packet(work->handle, work->header, work->packet);
+    free((void*)work->packet);
+    free(work->header);
+    free(work);
 }
 
 void set_flags(pcap_t *handle, char *errbuf)
@@ -156,11 +165,19 @@ void start_capture(pcap_t *handle, threadpool_t *pool)
     const u_char *packet;
     int result;
     printf("Starting packet capture...\n");
-    //currently wastes cpu cycles, need to sleep or integrate epoll
+
     while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
         if (result == 0) continue;  // Timeout, try again
         assert(header->caplen > 0);
-        // threadpool_add(pool, (*function)(void *), void *argument)
-        parse_packet(handle, header, packet);
+        packet_work_t *work = malloc(sizeof(packet_work_t));
+        work->handle = handle;
+
+        work->header = malloc(sizeof(struct pcap_pkthdr));
+        memcpy(work->header, header, sizeof(struct pcap_pkthdr));
+
+        work->packet = malloc(header->caplen);
+        memcpy((void*)work->packet, packet, header->caplen);
+
+        threadpool_add(pool, parse_packet_wrapper, work);
     }
 }

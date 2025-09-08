@@ -6,6 +6,7 @@
 #include <sys/cdefs.h>
 #include <sys/types.h>
 #include "lib/corelib/threadpool.h"
+
 /**
  * Radiotap header structure - Variable-length metadata for 802.11 frames
  *
@@ -159,3 +160,9 @@ void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *pack
  * @param handle Active pcap handle for packet capture
  */
 void start_capture(pcap_t *handle, threadpool_t *pool);
+
+typedef struct {
+    pcap_t *handle;
+    struct pcap_pkthdr *header;
+    const u_char *packet;
+} packet_work_t;
