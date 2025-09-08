@@ -10,3 +10,13 @@
 ## Work in progress :p
 
 [OUI Table database](https://standards-oui.ieee.org/oui/oui.txt)
+
+## Dependencies
+Ubuntu/Debian
+```bash
+sudo apt install libpcap-dev
+```
+Arch:
+```bash
+sudo pacman -S libpcap-dev
+```

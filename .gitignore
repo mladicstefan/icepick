@@ -1,4 +1,5 @@
 # Prerequisites
+.cache/*
 *.d
 threadpool/*
 # Object files
