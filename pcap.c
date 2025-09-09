@@ -1,4 +1,5 @@
 #include "pcap.h"
+#include "stdlib.h"
 #include "lib/corelib/threadpool.h"
 #include <string.h>
 #include <endian.h>
@@ -30,11 +31,15 @@ int list_interfaces(char *errbuf)
 }
 
 void parse_packet_wrapper(void *arg) {
-    packet_work_t *work = (packet_work_t *)arg;
-    parse_packet(work->handle, work->header, work->packet);
-    free((void*)work->packet);
-    free(work->header);
-    free(work);
+   packet_work_t *work = (packet_work_t *)arg;
+   parse_packet(work->handle, work->header, work->packet);
+}
+
+void cleanup_packet_work(void *arg) {
+   packet_work_t *work = (packet_work_t *)arg;
+   free((void*)work->packet);
+   free(work->header);
+   free(work);
 }
 
 void set_flags(pcap_t *handle, char *errbuf)
@@ -161,23 +166,29 @@ void parse_packet(pcap_t *handle, struct pcap_pkthdr *header, const u_char *pack
 
 void start_capture(pcap_t *handle, threadpool_t *pool)
 {
-    struct pcap_pkthdr *header;
-    const u_char *packet;
-    int result;
-    printf("Starting packet capture...\n");
+   struct pcap_pkthdr *header;
+   const u_char *packet;
+   int result;
+   printf("Starting packet capture...\n");
 
-    while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
-        if (result == 0) continue;  // Timeout, try again
-        assert(header->caplen > 0);
-        packet_work_t *work = malloc(sizeof(packet_work_t));
-        work->handle = handle;
+   while ((result = pcap_next_ex(handle, &header, &packet)) >= 0) {
+       if (result == 0) continue;  // Timeout, try again
+       assert(header->caplen > 0);
+       packet_work_t *work = malloc(sizeof(packet_work_t));
+       work->handle = handle;
 
-        work->header = malloc(sizeof(struct pcap_pkthdr));
-        memcpy(work->header, header, sizeof(struct pcap_pkthdr));
+       work->header = malloc(sizeof(struct pcap_pkthdr));
+       memcpy(work->header, header, sizeof(struct pcap_pkthdr));
 
-        work->packet = malloc(header->caplen);
-        memcpy((void*)work->packet, packet, header->caplen);
+       work->packet = malloc(header->caplen);
+       memcpy((void*)work->packet, packet, header->caplen);
 
-        threadpool_add(pool, parse_packet_wrapper, work);
-    }
+       task_t task = {
+           .task = parse_packet_wrapper,
+           .argument = work,
+           .cleanup = cleanup_packet_work
+       };
+
+       threadpool_add(pool, &task);
+   }
 }

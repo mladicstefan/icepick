@@ -1,12 +1,9 @@
 CC=gcc
 LIBS=-lpcap
-
-DEBUG_OBJS=main_debug.o pcap_debug.o
-RELEASE_OBJS=main_release.o pcap_release.o
-
+DEBUG_OBJS=main_debug.o pcap_debug.o lib/corelib/threadpool_debug.o
+RELEASE_OBJS=main_release.o pcap_release.o lib/corelib/threadpool_release.o
 DEBUG_CFLAGS=-g -Wall -Wextra -pthread -DDEBUG -fsanitize=address -fsanitize=undefined
 DEBUG_LDFLAGS=-fsanitize=address -pthread -fsanitize=undefined
-
 RELEASE_CFLAGS=-O3 -Wall -Werror -DNDEBUG -march=native -flto -ffast-math
 RELEASE_LDFLAGS=-flto
 
@@ -23,6 +20,12 @@ release: $(RELEASE_OBJS)
 
 %_release.o: %.c
 	$(CC) $(RELEASE_CFLAGS) -c $< -o $@
+
+lib/corelib/threadpool_debug.o: lib/corelib/threadpool.c lib/corelib/threadpool.h
+	$(CC) $(DEBUG_CFLAGS) -c lib/corelib/threadpool.c -o lib/corelib/threadpool_debug.o
+
+lib/corelib/threadpool_release.o: lib/corelib/threadpool.c lib/corelib/threadpool.h
+	$(CC) $(RELEASE_CFLAGS) -c lib/corelib/threadpool.c -o lib/corelib/threadpool_release.o
 
 clean:
 	rm -f $(DEBUG_OBJS) $(RELEASE_OBJS) icepick_debug icepick

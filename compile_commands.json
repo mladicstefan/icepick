@@ -11,30 +11,12 @@
       "-ffast-math",
       "-c",
       "-o",
+      "-Wno-unused-function",
       "main_release.o",
       "main.c"
     ],
-    "directory": "/home/djamla/Documents/code/icepick",
-    "file": "/home/djamla/Documents/code/icepick/main.c",
-    "output": "/home/djamla/Documents/code/icepick/main_release.o"
-  },
-  {
-    "arguments": [
-      "/usr/bin/gcc",
-      "-O3",
-      "-Wall",
-      "-Werror",
-      "-DNDEBUG",
-      "-march=native",
-      "-flto",
-      "-ffast-math",
-      "-c",
-      "-o",
-      "pcap_release.o",
-      "pcap.c"
-    ],
-    "directory": "/home/djamla/Documents/code/icepick",
-    "file": "/home/djamla/Documents/code/icepick/pcap.c",
-    "output": "/home/djamla/Documents/code/icepick/pcap_release.o"
+    "directory": "/home/djamla/Documents/code/git/icepick",
+    "file": "/home/djamla/Documents/code/git/icepick/main.c",
+    "output": "/home/djamla/Documents/code/git/icepick/main_release.o"
   }
 ]

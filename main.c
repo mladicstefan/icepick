@@ -2,6 +2,21 @@
 #include <stdio.h>
 #include <string.h>
 
+static const char *icepick_banner = 
+"██▓ ▄████▄   ▓█████  ██▓███   ██▓ ▄████▄   ██ ▄█▀\n"
+"▓██▒▒██▀ ▀█   ▓█   ▀ ▓██░ ██▒▓██▒▒██▀ ▀█   ██▄█▒ \n"
+"▒██▒▒▓█    ▄  ▒███   ▓██░ ██▓▒▒██▒▒▓█    ▄ ▓███▄░ \n"
+"░██░▒▓▓▄ ▄██▒ ▒▓█  ▄ ▒██▄█▓▒ ▒░██░▒▓▓▄ ▄██▒▓██ █▄ \n"
+"░██░▒ ▓███▀ ░ ░▒████▒▒██▒ ░  ░░██░▒ ▓███▀ ░▒██▒ █▄\n"
+"░▓  ░ ░▒ ▒  ░ ░░ ▒░ ░▒▓▒░ ░  ░░▓  ░ ░▒ ▒  ░▒ ▒▒ ▓▒\n"
+" ▒ ░  ░  ▒     ░ ░  ░░▒ ░      ▒ ░  ░  ▒   ░ ░▒ ▒░\n"
+" ▒ ░░          ░ ░   ░░        ▒ ░░        ░ ░░ ░ \n"
+" ░  ░ ░          ░  ░          ░  ░ ░      ░  ░   \n"
+"    ░                             ░               \n";
+
+static const bool GRACEFUL = true;
+static const bool NOT_GRACEFUL = false;
+
 void user_help() {
     printf("Icepick - Network Traffic Capture\n\n");
     printf("REQUIREMENTS:\n");
@@ -17,42 +32,52 @@ void user_help() {
 }
 
 int main(int argc, char *argv[]) {
+    printf("%s", icepick_banner);
     char errbuf[PCAP_ERRBUF_SIZE];
     char *interface;
-    threadpool_t *pool = cpool_create(MAX_THREADS, MAX_QUEUE);
-    // Handle command line arguments
+
+    threadpool_t *pool = threadpool_create(MAX_THREADS, MAX_QUEUE);
+    if (!pool) {
+        fprintf(stderr, "Failed to create threadpool\n");
+        return -1;
+    }
+
     if (argc < 2) {
         fprintf(stderr, "Error: Interface name required\n");
         if (list_interfaces(errbuf) < 0) {
             fprintf(stderr, "Not able to find interfaces: %s\n", errbuf);
+            threadpool_destroy(pool, NOT_GRACEFUL);
             return -2;
         }
         user_help();
+        threadpool_destroy(pool, NOT_GRACEFUL);
         return -1;
     }
 
     if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
         user_help();
+        threadpool_destroy(pool, NOT_GRACEFUL);
         return 0;
     }
+
     interface = argv[1];
 
     if (pcap_init(PCAP_CHAR_ENC_LOCAL, errbuf) != 0) {
         fprintf(stderr, "pcap init failed: %s\n", errbuf);
+        threadpool_destroy(pool, NOT_GRACEFUL);
         return -1;
     }
 
     pcap_t *handle = create_handle(interface, errbuf);
     if (handle == NULL) {
         fprintf(stderr, "Handle creation failed: %s\n", errbuf);
+        threadpool_destroy(pool, NOT_GRACEFUL);
         return -4;
     }
 
     start_capture(handle, pool);
 
-    threadpool_free(pool);
+    threadpool_destroy(pool, GRACEFUL);
     pcap_close(handle);
     return 0;
 }
-// Quick fix for ISSUE #1
-//sudo iw dev mon0 del
